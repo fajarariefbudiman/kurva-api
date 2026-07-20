@@ -1,0 +1,25 @@
+# Konfigurasi database Postgres.
+#
+# Di Railway, variabel `DATABASE_URL` otomatis disediakan begitu kamu
+# menambahkan plugin Postgres ke project — jadi biasanya kamu tidak perlu
+# mengubah file ini sama sekali.
+#
+# Untuk development lokal, isi `.env` (contoh di `.env.example`) dengan
+# DATABASE_URL="postgres://user:password@localhost:5432/kurva_api_development"
+
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  url: <%= ENV["DATABASE_URL"] %>
+
+development:
+  <<: *default
+  database: kurva_api_development
+
+test:
+  <<: *default
+  database: kurva_api_test
+
+production:
+  <<: *default

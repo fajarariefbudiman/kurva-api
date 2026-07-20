@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -e
+
+echo "== Install gems =="
+bundle install
+
+echo "== Siapkan database =="
+bin/rails db:prepare
+
+echo "== Selesai! Jalankan servernya dengan: bin/rails server =="

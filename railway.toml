@@ -1,0 +1,12 @@
+# Konfigurasi build & deploy untuk Railway.
+# Railway otomatis mendeteksi ini sebagai app Ruby/Rails lewat Nixpacks.
+
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+startCommand = "bundle exec puma -C config/puma.rb"
+healthcheckPath = "/up"
+healthcheckTimeout = 100
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
