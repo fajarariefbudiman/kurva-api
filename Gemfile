@@ -1,6 +1,6 @@
 source "https://rubygems.org"
 
-ruby "3.2.2"
+ruby "4.0.6"
 
 # Rails inti, mode API-only (tanpa view/asset pipeline)
 gem "rails", "~> 7.1.3"
