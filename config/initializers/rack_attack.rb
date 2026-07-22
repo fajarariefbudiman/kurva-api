@@ -8,7 +8,7 @@ class Rack::Attack
   # Cache throttle disimpan di memory Rails secara default. Untuk deployment
   # dengan banyak instance/dyno, arahkan ke Redis lewat REDIS_URL supaya
   # limit-nya konsisten di semua instance.
-  if ENV["REDIS_URL"]
+  if ENV["REDIS_URL"].present?
     require "redis"
     Rack::Attack.cache.store = ActiveSupport::Cache::RedisCacheStore.new(url: ENV["REDIS_URL"])
   end
