@@ -12,6 +12,7 @@ Bundler.require(*Rails.groups)
 module KurvaApi
   class Application < Rails::Application
     config.load_defaults 7.1
+    config.autoload_lib(ignore: %w[tasks])
 
     # Ini API-only backend — tidak ada view, session cookie, atau CSRF token.
     config.api_only = true
