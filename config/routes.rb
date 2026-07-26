@@ -7,11 +7,13 @@ Rails.application.routes.draw do
       post "auth/register", to: "auth#register"
       post "auth/login", to: "auth#login"
       get "auth/me", to: "auth#me"
+      patch "auth/me", to: "auth#update_me"
 
       resources :products
       resources :customers
       resources :transactions, only: [:index, :show, :create]
       resources :financial_records
+      resources :payment_methods, only: [:index, :create, :update, :destroy]
 
       resources :cash_sessions, only: [:index, :create] do
         collection do

@@ -28,7 +28,20 @@ module Api
         render json: { user: user_json(current_user) }
       end
 
+      # PATCH /api/v1/auth/me — update profil toko (nama_toko, hp_toko, alamat).
+      def update_me
+        authenticate_user!
+        return if performed?
+
+        current_user.update!(profile_params)
+        render json: { user: user_json(current_user) }
+      end
+
       private
+
+      def profile_params
+        params.require(:user).permit(:nama_toko, :hp_toko, :alamat)
+      end
 
       def user_params
         params.require(:user).permit(:nama_toko, :email, :password, :password_confirmation, :hp_toko, :alamat)

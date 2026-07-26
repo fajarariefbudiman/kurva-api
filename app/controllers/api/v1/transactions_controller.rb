@@ -16,17 +16,38 @@ module Api
       end
 
       # POST /api/v1/transactions
-      # Body: { transaction: { kasir, subtotal, diskon, total, metode_pembayaran,
+      # Body: { transaction: { kasir, subtotal, diskon, total, payment_method_id,
       #                          uang_diterima, kembalian, customer_id, cash_session_id,
       #                          items: [{ product_id, nama, harga, harga_modal, qty }] } }
+      #
+      # `payment_method_id` opsional. Kalau toko belum setup metode pembayaran
+      # apa pun lewat CRUD (Pengaturan), transaksi otomatis dianggap Tunai.
       def create
         tx = current_user.transactions.new(transaction_params)
         tx.terjadi_pada ||= Time.current
+        assign_payment_method!(tx)
         tx.save!
         render json: tx.as_json(include: :transaction_items), status: :created
       end
 
       private
+
+      # Isi metode_pembayaran (kategori: tunai/transfer/qris/lainnya) dan
+      # payment_method_label (snapshot nama lengkap) berdasarkan
+      # payment_method_id yang dikirim. Kalau kosong/tidak ditemukan → Tunai.
+      def assign_payment_method!(tx)
+        pm_id = params.dig(:transaction, :payment_method_id)
+        pm = pm_id.present? ? current_user.payment_methods.find_by(id: pm_id) : nil
+
+        if pm
+          tx.payment_method = pm
+          tx.metode_pembayaran = pm.jenis
+          tx.payment_method_label = pm.label
+        else
+          tx.metode_pembayaran = "tunai"
+          tx.payment_method_label = "Tunai"
+        end
+      end
 
       def transaction_params
         params.require(:transaction).permit(

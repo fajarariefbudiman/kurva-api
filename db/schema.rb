@@ -1,6 +1,6 @@
 # This file is auto-generated from the current state of the database.
 # After running `rails db:migrate`, Rails will regenerate this file to match.
-ActiveRecord::Schema[7.1].define(version: 2026_01_01_000007) do
+ActiveRecord::Schema[7.1].define(version: 2026_01_01_000009) do
   enable_extension "plpgsql"
 
   create_table "cash_sessions", force: :cascade do |t|
@@ -50,6 +50,20 @@ ActiveRecord::Schema[7.1].define(version: 2026_01_01_000007) do
     t.index ["user_id", "kind", "tanggal"], name: "index_financial_records_on_user_id_and_kind_and_tanggal"
   end
 
+  create_table "payment_methods", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "nama", null: false
+    t.string "jenis", null: false
+    t.string "bank"
+    t.string "nomor_rekening"
+    t.string "atas_nama"
+    t.boolean "aktif", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id", "aktif"], name: "index_payment_methods_on_user_id_and_aktif"
+    t.index ["user_id"], name: "index_payment_methods_on_user_id"
+  end
+
   create_table "products", force: :cascade do |t|
     t.bigint "user_id", null: false
     t.string "nama", null: false
@@ -90,8 +104,11 @@ ActiveRecord::Schema[7.1].define(version: 2026_01_01_000007) do
     t.datetime "terjadi_pada", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.bigint "payment_method_id"
+    t.string "payment_method_label"
     t.index ["cash_session_id"], name: "index_transactions_on_cash_session_id"
     t.index ["customer_id"], name: "index_transactions_on_customer_id"
+    t.index ["payment_method_id"], name: "index_transactions_on_payment_method_id"
     t.index ["user_id", "terjadi_pada"], name: "index_transactions_on_user_id_and_terjadi_pada"
   end
 
@@ -110,10 +127,12 @@ ActiveRecord::Schema[7.1].define(version: 2026_01_01_000007) do
   add_foreign_key "customers", "users"
   add_foreign_key "financial_records", "cash_sessions"
   add_foreign_key "financial_records", "users"
+  add_foreign_key "payment_methods", "users"
   add_foreign_key "products", "users"
   add_foreign_key "transaction_items", "products"
   add_foreign_key "transaction_items", "transactions"
   add_foreign_key "transactions", "cash_sessions"
   add_foreign_key "transactions", "customers"
+  add_foreign_key "transactions", "payment_methods"
   add_foreign_key "transactions", "users"
 end

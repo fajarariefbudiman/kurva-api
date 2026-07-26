@@ -1,11 +1,12 @@
 # NB: nama kelas `Transaction` sengaja dipakai (transaksi PENJUALAN),
 # bukan `ActiveRecord`-internal `Transaction` (namespace berbeda, tidak bentrok).
 class Transaction < ApplicationRecord
-  METODE_PEMBAYARAN = %w[tunai transfer qris].freeze
+  METODE_PEMBAYARAN = %w[tunai transfer qris lainnya].freeze
 
   belongs_to :user
   belongs_to :customer, optional: true
   belongs_to :cash_session, optional: true
+  belongs_to :payment_method, optional: true
   has_many :transaction_items, dependent: :destroy
   accepts_nested_attributes_for :transaction_items
 
