@@ -1,5 +1,6 @@
 class TransactionItem < ApplicationRecord
-  belongs_to :sale, class_name: "Transaction", foreign_key: "transaction_id"
+  belongs_to :sale, class_name: "Transaction", foreign_key: "transaction_id",
+                    inverse_of: :transaction_items
   belongs_to :product, optional: true
 
   validates :nama, presence: true

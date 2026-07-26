@@ -7,7 +7,7 @@ class Transaction < ApplicationRecord
   belongs_to :customer, optional: true
   belongs_to :cash_session, optional: true
   belongs_to :payment_method, optional: true
-  has_many :transaction_items, dependent: :destroy
+  has_many :transaction_items, dependent: :destroy, inverse_of: :sale
   accepts_nested_attributes_for :transaction_items
 
   validates :kasir, presence: true
