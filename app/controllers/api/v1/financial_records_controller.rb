@@ -45,7 +45,8 @@ module Api
 
       def record_params
         p = params.require(:financial_record).permit(
-          :kind, :nama, :kategori, :jumlah, :tanggal, :berulang, :catatan, :cash_session_id
+          :kind, :nama, :kategori, :jumlah, :tanggal, :berulang, :catatan,
+          :cash_session_id, :jenis_akad, :tanggal_mulai, :durasi_bulan
         )
         unless VALID_KINDS.include?(p[:kind])
           raise ActionController::BadRequest, "kind harus salah satu dari: #{VALID_KINDS.join(', ')}"

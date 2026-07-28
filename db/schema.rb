@@ -1,6 +1,6 @@
 # This file is auto-generated from the current state of the database.
 # After running `rails db:migrate`, Rails will regenerate this file to match.
-ActiveRecord::Schema[7.1].define(version: 2026_01_01_000009) do
+ActiveRecord::Schema[7.1].define(version: 2026_02_01_000001) do
   enable_extension "plpgsql"
 
   create_table "cash_sessions", force: :cascade do |t|
@@ -46,6 +46,9 @@ ActiveRecord::Schema[7.1].define(version: 2026_01_01_000009) do
     t.text "catatan"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "jenis_akad"
+    t.date "tanggal_mulai"
+    t.integer "durasi_bulan"
     t.index ["cash_session_id"], name: "index_financial_records_on_cash_session_id"
     t.index ["user_id", "kind", "tanggal"], name: "index_financial_records_on_user_id_and_kind_and_tanggal"
   end
