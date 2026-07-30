@@ -18,9 +18,17 @@ class Purchase < ApplicationRecord
   STATUS_PEMBAYARAN = %w[lunas hutang].freeze
   METODE_PEMBAYARAN = %w[tunai transfer qris lainnya].freeze
 
+  # PENTING: didaftarkan SEBELUM asosiasi `dependent: :destroy` di bawah.
+  # Di Rails, urutan eksekusi callback `before_*` mengikuti urutan
+  # PENDAFTARAN (top-to-bottom di file ini) — jadi callback ini WAJIB
+  # duluan supaya reverse_side_effects! masih sempat baca purchase_items
+  # yang lama sebelum keburu ikut terhapus oleh `dependent: :destroy`.
+  before_destroy :reverse_side_effects!
+
   belongs_to :user
   belongs_to :supplier, optional: true
   has_many :purchase_items, dependent: :destroy, inverse_of: :purchase
+  has_many :financial_records, dependent: :destroy
   accepts_nested_attributes_for :purchase_items
 
   validates :penerima, presence: true
@@ -52,21 +60,44 @@ class Purchase < ApplicationRecord
     true
   end
 
-  private
-
-  def harus_ada_item
-    errors.add(:purchase_items, "minimal 1 barang") if purchase_items.reject(&:marked_for_destruction?).empty?
-  end
-
   # Efek samping wajib saat pembelian dibuat: naikkan stok & perbarui
   # harga modal (weighted average cost) tiap produk, lalu catat efek
   # kas/hutang sesuai status_pembayaran. Dibungkus satu transaction DB
   # supaya konsisten (semua berhasil, atau semua batal).
+  #
+  # Dipanggil otomatis via after_create, DAN dipanggil manual oleh
+  # PurchasesController#update setelah data pembelian selesai diperbarui
+  # (lihat reverse_side_effects! di bawah untuk arah sebaliknya).
   def apply_side_effects!
     ActiveRecord::Base.transaction do
       purchase_items.each { |item| update_stock_and_cost!(item) }
       handle_payment_and_debt!
     end
+  end
+
+  # Kebalikan dari apply_side_effects! — meng-"undo" efek stok/harga
+  # modal produk serta kas/hutang, memakai data purchase_items & status
+  # pembayaran yang MASIH LAMA (belum diubah). Dipanggil sebelum sebuah
+  # pembelian diedit (lihat PurchasesController#update) atau dihapus
+  # (before_destroy di atas).
+  #
+  # CATATAN keterbatasan: kalau stok produk sudah berkurang lagi setelah
+  # pembelian ini (mis. karena sudah kejual), reversal harga modal tidak
+  # bisa 100% presisi secara matematis (weighted average cost bukan
+  # operasi yang bisa dibalik sempurna kalau ada pergerakan stok lain di
+  # antaranya). Untuk kasus itu, stok diamankan supaya tidak sampai
+  # minus, dan harga modal dibiarkan seperti sebelum reversal.
+  def reverse_side_effects!
+    ActiveRecord::Base.transaction do
+      purchase_items.each { |item| reverse_stock_and_cost!(item) }
+      reverse_payment_and_debt!
+    end
+  end
+
+  private
+
+  def harus_ada_item
+    errors.add(:purchase_items, "minimal 1 barang") if purchase_items.reject(&:marked_for_destruction?).empty?
   end
 
   def update_stock_and_cost!(item)
@@ -82,6 +113,27 @@ class Purchase < ApplicationRecord
     product.update!(stok: stok_baru, harga_modal: modal_baru.round(2))
   end
 
+  # Kebalikan matematis dari update_stock_and_cost! di atas.
+  def reverse_stock_and_cost!(item)
+    product = item.product
+    return unless product
+
+    stok_lama = product.stok
+    modal_lama = product.harga_modal
+    stok_baru = stok_lama - item.qty
+
+    if stok_baru <= 0
+      # Tidak bisa dihitung mundur secara akurat (lihat catatan di
+      # reverse_side_effects!) — amankan saja supaya stok tidak minus.
+      product.update!(stok: 0)
+    else
+      total_modal_lama = stok_lama * modal_lama
+      total_modal_item = item.qty * item.harga_beli
+      modal_baru = (total_modal_lama - total_modal_item) / stok_baru.to_f
+      product.update!(stok: stok_baru, harga_modal: [modal_baru, 0].max.round(2))
+    end
+  end
+
   def handle_payment_and_debt!
     case status_pembayaran
     when "lunas"
@@ -90,6 +142,17 @@ class Purchase < ApplicationRecord
     when "hutang"
       supplier&.increment!(:total_hutang, total)
     end
+  end
+
+  # Kebalikan dari handle_payment_and_debt! — hapus catatan kas keluar
+  # yang terkait pembelian ini (baik yang dari pembelian lunas maupun
+  # dari pelunasan hutang belakangan, lihat lunasi_hutang!), dan
+  # kembalikan hutang supplier kalau pembelian ini masih berstatus
+  # "hutang" (artinya belum pernah dilunasi, jadi hutangnya masih perlu
+  # dibatalkan).
+  def reverse_payment_and_debt!
+    financial_records.destroy_all
+    supplier&.decrement!(:total_hutang, total) if status_pembayaran == "hutang"
   end
 
   # Catatan kas TIDAK pernah dianggap sebagai expense/opex di Laba

@@ -13,7 +13,7 @@ Rails.application.routes.draw do
       resources :customers
       resources :suppliers
       resources :transactions, only: [:index, :show, :create]
-      resources :purchases, only: [:index, :show, :create] do
+      resources :purchases, only: [:index, :show, :create, :update, :destroy] do
         member do
           patch :lunasi
         end
