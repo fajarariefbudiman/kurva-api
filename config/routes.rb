@@ -11,7 +11,13 @@ Rails.application.routes.draw do
 
       resources :products
       resources :customers
+      resources :suppliers
       resources :transactions, only: [:index, :show, :create]
+      resources :purchases, only: [:index, :show, :create] do
+        member do
+          patch :lunasi
+        end
+      end
       resources :financial_records
       resources :payment_methods, only: [:index, :create, :update, :destroy]
 

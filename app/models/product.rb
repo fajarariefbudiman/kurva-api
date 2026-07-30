@@ -1,6 +1,7 @@
 class Product < ApplicationRecord
   belongs_to :user
   has_many :transaction_items, dependent: :nullify
+  has_many :purchase_items, dependent: :nullify
 
   validates :nama, presence: true
   validates :kategori, presence: true

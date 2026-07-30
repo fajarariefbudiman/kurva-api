@@ -1,6 +1,6 @@
 # This file is auto-generated from the current state of the database.
 # After running `rails db:migrate`, Rails will regenerate this file to match.
-ActiveRecord::Schema[7.1].define(version: 2026_02_01_000001) do
+ActiveRecord::Schema[7.1].define(version: 2026_03_01_000004) do
   enable_extension "plpgsql"
 
   create_table "cash_sessions", force: :cascade do |t|
@@ -49,7 +49,9 @@ ActiveRecord::Schema[7.1].define(version: 2026_02_01_000001) do
     t.string "jenis_akad"
     t.date "tanggal_mulai"
     t.integer "durasi_bulan"
+    t.bigint "purchase_id"
     t.index ["cash_session_id"], name: "index_financial_records_on_cash_session_id"
+    t.index ["purchase_id"], name: "index_financial_records_on_purchase_id"
     t.index ["user_id", "kind", "tanggal"], name: "index_financial_records_on_user_id_and_kind_and_tanggal"
   end
 
@@ -78,6 +80,49 @@ ActiveRecord::Schema[7.1].define(version: 2026_02_01_000001) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["user_id", "nama"], name: "index_products_on_user_id_and_nama"
+  end
+
+  create_table "purchase_items", force: :cascade do |t|
+    t.bigint "purchase_id", null: false
+    t.bigint "product_id"
+    t.string "nama", null: false
+    t.decimal "harga_beli", precision: 14, scale: 2, null: false
+    t.integer "qty", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["product_id"], name: "index_purchase_items_on_product_id"
+    t.index ["purchase_id"], name: "index_purchase_items_on_purchase_id"
+  end
+
+  create_table "purchases", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.bigint "supplier_id"
+    t.string "no_faktur"
+    t.string "penerima", null: false
+    t.decimal "subtotal", precision: 14, scale: 2, null: false
+    t.decimal "diskon", precision: 14, scale: 2, default: "0.0", null: false
+    t.decimal "total", precision: 14, scale: 2, null: false
+    t.string "status_pembayaran", default: "lunas", null: false
+    t.string "metode_pembayaran"
+    t.datetime "terjadi_pada", null: false
+    t.text "catatan"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["supplier_id"], name: "index_purchases_on_supplier_id"
+    t.index ["user_id", "status_pembayaran"], name: "index_purchases_on_user_id_and_status_pembayaran"
+    t.index ["user_id", "terjadi_pada"], name: "index_purchases_on_user_id_and_terjadi_pada"
+  end
+
+  create_table "suppliers", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "nama", null: false
+    t.string "hp"
+    t.string "alamat"
+    t.decimal "total_hutang", precision: 14, scale: 2, default: "0.0", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id", "nama"], name: "index_suppliers_on_user_id_and_nama"
+    t.index ["user_id"], name: "index_suppliers_on_user_id"
   end
 
   create_table "transaction_items", force: :cascade do |t|
@@ -129,9 +174,15 @@ ActiveRecord::Schema[7.1].define(version: 2026_02_01_000001) do
   add_foreign_key "cash_sessions", "users"
   add_foreign_key "customers", "users"
   add_foreign_key "financial_records", "cash_sessions"
+  add_foreign_key "financial_records", "purchases"
   add_foreign_key "financial_records", "users"
   add_foreign_key "payment_methods", "users"
   add_foreign_key "products", "users"
+  add_foreign_key "purchase_items", "products"
+  add_foreign_key "purchase_items", "purchases"
+  add_foreign_key "purchases", "suppliers"
+  add_foreign_key "purchases", "users"
+  add_foreign_key "suppliers", "users"
   add_foreign_key "transaction_items", "products"
   add_foreign_key "transaction_items", "transactions"
   add_foreign_key "transactions", "cash_sessions"

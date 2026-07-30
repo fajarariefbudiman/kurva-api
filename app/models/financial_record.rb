@@ -6,10 +6,20 @@ class FinancialRecord < ApplicationRecord
   #   prive → uang yang DIAMBIL pemilik dari usaha (kebalikan dari
   #           'modal' yang uang disetor pemilik ke usaha). Dipakai untuk
   #           menghitung Modal Akhir di halaman "Modal Pemilik".
-  KINDS = %w[modal capex opex expense prive kas_masuk kas_keluar].freeze
+  #   pembelian_stok / bayar_hutang_supplier → kas keluar akibat beli
+  #   atau melunasi hutang stok barang. SENGAJA dipisah dari `expense` /
+  #   `kas_keluar` biasa: ini cuma perpindahan Kas -> Persediaan (atau
+  #   pelunasan Hutang), BUKAN beban. Bebannya baru diakui sebagai COGS
+  #   saat barangnya laku terjual (lihat Purchase & ReportsController).
+  #   Karena itu kind ini ikut dihitung di laporan Arus Kas, tapi
+  #   SENGAJA tidak ikut dijumlah ke total_expense di Laba Rugi, supaya
+  #   tidak dobel-hitung dengan COGS.
+  KINDS = %w[modal capex opex expense prive kas_masuk kas_keluar
+             pembelian_stok bayar_hutang_supplier].freeze
 
   belongs_to :user
   belongs_to :cash_session, optional: true
+  belongs_to :purchase, optional: true
 
   validates :kind, inclusion: { in: KINDS }
   validates :nama, presence: true

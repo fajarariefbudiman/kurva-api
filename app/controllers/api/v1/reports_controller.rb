@@ -21,6 +21,14 @@ module Api
         total_opex = records.of_kind("opex").sum(:jumlah)
         total_expense = records.of_kind(%w[expense kas_keluar]).sum(:jumlah)
 
+        # `pembelian_stok` & `bayar_hutang_supplier` SENGAJA tidak ikut
+        # `total_expense` di atas -- itu perpindahan Kas ke Persediaan
+        # (atau pelunasan Hutang), bukan beban. Bebannya sudah terwakili
+        # lewat `total_cogs` di atas, yang diakui saat barang laku, bukan
+        # saat dibeli. Di sini cuma ditampilkan sebagai info arus kas.
+        total_pembelian_stok = records.of_kind(%w[pembelian_stok bayar_hutang_supplier]).sum(:jumlah)
+        total_hutang_supplier = current_user.suppliers.sum(:total_hutang)
+
         render json: {
           periode: { dari: from, sampai: to },
           penjualan: {
@@ -34,6 +42,10 @@ module Api
             capex: total_capex,
             opex: total_opex,
             expense: total_expense
+          },
+          arus_kas: {
+            pembelian_stok: total_pembelian_stok,
+            hutang_supplier_saat_ini: total_hutang_supplier
           }
         }
       end

@@ -7,6 +7,8 @@ class User < ApplicationRecord
   has_many :cash_sessions, dependent: :destroy
   has_many :financial_records, dependent: :destroy
   has_many :payment_methods, dependent: :destroy
+  has_many :suppliers, dependent: :destroy
+  has_many :purchases, dependent: :destroy
 
   before_validation { self.email = email.to_s.downcase.strip }
 
