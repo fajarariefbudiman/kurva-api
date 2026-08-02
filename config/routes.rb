@@ -8,6 +8,7 @@ Rails.application.routes.draw do
       post "auth/login", to: "auth#login"
       get "auth/me", to: "auth#me"
       patch "auth/me", to: "auth#update_me"
+      patch "auth/password", to: "auth#change_password"
 
       resources :products
       resources :customers
