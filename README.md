@@ -1,135 +1,134 @@
 # Kurva API
 
-Backend Ruby on Rails (mode API-only) untuk aplikasi Kurva - kasir digital
-UMKM. Menangani autentikasi (Login/Register), produk, transaksi, sesi kas,
-dan pencatatan keuangan (Modal, Capex, Opex, COGS, Expense, Kas Masuk/Keluar).
+Ruby on Rails API for Kurva, a point-of-sale and financial management app for small businesses. It supports authentication, products, sales, cash sessions, and financial records.
 
-## Kenapa strukturnya begini
+## Architecture
 
-- **Satu tabel `financial_records` untuk 6 jenis catatan** (Modal, Capex,
-  Opex, Expense, Kas Masuk, Kas Keluar), dibedakan lewat kolom `kind`.
-  Ini disengaja: kelimanya punya bentuk data yang identik (nama, jumlah,
-  tanggal, kategori), jadi satu tabel lebih gampang di-maintain daripada
-  lima tabel yang isinya sama persis.
-- **COGS/HPP tidak disimpan manual** - dihitung otomatis dari
-  `transaction_items.harga_modal x qty` tiap kali laporan diminta. Ini
-  memastikan HPP selalu konsisten dengan transaksi yang benar-benar
-  terjadi, tidak bisa "lupa dicatat" seperti kalau manual.
-- **Multi-tenant per `user`** - tiap toko yang daftar (`User`) hanya bisa
-  melihat & mengubah data miliknya sendiri. Semua controller resource
-  query lewat `current_user.products`, dst, jadi tidak mungkin bocor ke
-  toko lain.
+- **Financial records:** The `financial_records` table stores `modal`, `capex`, `opex`, `expense`, `kas_masuk`, and `kas_keluar`, distinguished by `kind`.
+- **COGS:** Calculated from `transaction_items.harga_modal * qty` instead of being recorded manually.
+- **Data isolation:** Resource queries are scoped to the authenticated user, such as `current_user.products`.
 
-## Kebutuhan sistem
+## Requirements
 
 - Ruby 3.2+
 - PostgreSQL 14+
 - Bundler (`gem install bundler`)
 
-## Setup development lokal
+## Local Development
 
 ```bash
 cd kurva_api
 cp .env.example .env
-# edit .env: isi DATABASE_URL sesuai Postgres lokal kamu,
-# lalu generate SECRET_KEY_BASE & JWT_SECRET dengan:
-#   ruby -rsecurerandom -e "puts SecureRandom.hex(64)"
-
-bin/setup          # bundle install + siapkan database
-bin/rails db:seed  # (opsional) isi data contoh - akun demo@kurva.app / password123
-bin/rails server   # jalan di http://localhost:3000
+bin/setup
+bin/rails db:seed # Optional demo data
+bin/rails server
 ```
 
-## Middleware & keamanan yang sudah aktif
+The API runs at `http://localhost:3000`. The optional seed includes `demo@kurva.app` with password `password123`.
 
-| Middleware                            | Fungsi                                                                                                           |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `Rack::Attack`                        | Rate limiting: 300 request/5 menit per IP (umum), 5 percobaan login/menit per IP+email, 10 registrasi/jam per IP |
-| `Rack::Cors`                          | Mengizinkan app Flutter (atau domain lain via `CORS_ALLOWED_ORIGINS`) memanggil API                              |
-| `SecurityHeaders` (custom)            | `X-Content-Type-Options`, `X-Frame-Options`, `Content-Security-Policy`, dll di tiap response                     |
-| `force_ssl` (production)              | Memaksa semua trafik production lewat HTTPS                                                                      |
-| JWT (`Authorization: Bearer <token>`) | Autentikasi tanpa session/cookie, cocok untuk mobile app                                                         |
-| `bcrypt` (`has_secure_password`)      | Password di-hash, tidak pernah disimpan plain text                                                               |
-| Filtered logging                      | `password` & `token` otomatis disamarkan di log server                                                           |
+## Security
 
-## Referensi endpoint
+| Component | Purpose |
+| --- | --- |
+| `Rack::Attack` | Rate limits: 300 requests/5 min per IP, 5 logins/min per IP and email, 10 registrations/hour per IP. |
+| `Rack::Cors` | Controls browser access using `CORS_ALLOWED_ORIGINS`. |
+| `SecurityHeaders` | Adds response security headers. |
+| `force_ssl` | Enforces HTTPS in production. |
+| JWT | Authenticates requests using bearer tokens. |
+| `bcrypt` | Hashes passwords using `has_secure_password`. |
+| Filtered logging | Redacts passwords and tokens from logs. |
 
-Semua response JSON. Endpoint selain `auth/register` & `auth/login` wajib
-header `Authorization: Bearer <token>`.
+## API Reference
 
-### Auth
+All responses use JSON. Except for registration and login, endpoints require `Authorization: Bearer <token>`.
+
+### Authentication
 
 ```bash
-# Daftar toko baru
+# Register
 curl -X POST http://localhost:3000/api/v1/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"user":{"nama_toko":"Warung Bu Sri","email":"sri@contoh.com","password":"rahasia123","password_confirmation":"rahasia123"}}'
-# → { "token": "...", "user": { "id": 1, "nama_toko": "...", "email": "..." } }
+  -d '{"user":{"nama_toko":"Warung Bu Sri","email":"sri@example.com","password":"password123","password_confirmation":"password123"}}'
 
 # Login
 curl -X POST http://localhost:3000/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"sri@contoh.com","password":"rahasia123"}'
+  -d '{"email":"sri@example.com","password":"password123"}'
 
-# Cek profil sendiri
-curl http://localhost:3000/api/v1/auth/me -H "Authorization: Bearer <token>"
+# Current user
+curl http://localhost:3000/api/v1/auth/me \
+  -H "Authorization: Bearer <token>"
 ```
 
-### Produk
+### Products
 
 ```bash
-curl http://localhost:3000/api/v1/products -H "Authorization: Bearer <token>"
+# List products
+curl http://localhost:3000/api/v1/products \
+  -H "Authorization: Bearer <token>"
 
+# Create a product
 curl -X POST http://localhost:3000/api/v1/products \
-  -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
   -d '{"product":{"nama":"Es Teh","kategori":"Minuman","harga_jual":5000,"harga_modal":2000,"stok":50}}'
 ```
 
-### Transaksi (penjualan)
+### Transactions
 
 ```bash
+# Record a sale
 curl -X POST http://localhost:3000/api/v1/transactions \
-  -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
-  -d '{"transaction":{
-        "kasir":"Kasir 1","subtotal":5000,"diskon":0,"total":5000,
-        "metode_pembayaran":"tunai","uang_diterima":10000,"kembalian":5000,
-        "items":[{"product_id":1,"nama":"Es Teh","harga":5000,"harga_modal":2000,"qty":1}]
-      }}'
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"transaction":{"kasir":"Kasir 1","subtotal":5000,"diskon":0,"total":5000,"metode_pembayaran":"tunai","uang_diterima":10000,"kembalian":5000,"items":[{"product_id":1,"nama":"Es Teh","harga":5000,"harga_modal":2000,"qty":1}]}}'
 ```
 
-### Sesi kas (buka/tutup)
+### Cash Sessions
 
 ```bash
+# Open a session
 curl -X POST http://localhost:3000/api/v1/cash_sessions \
-  -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
   -d '{"kasir":"Kasir 1","modal_awal":100000}'
 
-curl http://localhost:3000/api/v1/cash_sessions/active -H "Authorization: Bearer <token>"
+# Get the active session
+curl http://localhost:3000/api/v1/cash_sessions/active \
+  -H "Authorization: Bearer <token>"
 
+# Close a session
 curl -X PATCH http://localhost:3000/api/v1/cash_sessions/1/close \
-  -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
   -d '{"kas_akhir_fisik":150000,"catatan":"Sesuai"}'
 ```
 
-### Keuangan - Modal, Capex, Opex, Expense, Kas Masuk/Keluar
+### Financial Records
 
-`kind` wajib salah satu dari: `modal`, `capex`, `opex`, `expense`,
-`kas_masuk`, `kas_keluar`.
+Valid `kind` values: `modal`, `capex`, `opex`, `expense`, `kas_masuk`, and `kas_keluar`.
 
 ```bash
+# Create a financial record
 curl -X POST http://localhost:3000/api/v1/financial_records \
-  -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
   -d '{"financial_record":{"kind":"capex","nama":"Gerobak jualan","kategori":"Peralatan","jumlah":3000000,"tanggal":"2026-01-01"}}'
 
-curl "http://localhost:3000/api/v1/financial_records?kind=opex" -H "Authorization: Bearer <token>"
-```
-
-### Laporan ringkas
-
-```bash
-curl "http://localhost:3000/api/v1/reports/summary?from=2026-07-01&to=2026-07-31" \
+# Filter financial records
+curl 'http://localhost:3000/api/v1/financial_records?kind=opex' \
   -H "Authorization: Bearer <token>"
 ```
+
+### Reports
+
+```bash
+# Get a summary report
+curl 'http://localhost:3000/api/v1/reports/summary?from=2026-07-01&to=2026-07-31' \
+  -H "Authorization: Bearer <token>"
+```
+
+Example response:
 
 ```json
 {
@@ -149,47 +148,31 @@ curl "http://localhost:3000/api/v1/reports/summary?from=2026-07-01&to=2026-07-31
 }
 ```
 
-## Deploy ke Railway
+## Railway Deployment
 
-1. **Buat project baru di Railway** → _New Project_ → _Deploy from GitHub repo_
-   (push folder `kurva_api` ini ke repo GitHub terlebih dahulu).
+1. Push the Rails project to GitHub and create a Railway project from the repository.
+2. Add a PostgreSQL service and configure the Rails service to use its `DATABASE_URL`.
+3. Set the following environment variables:
 
-2. **Tambahkan database Postgres**: di dalam project, klik _New_ →
-   _Database_ → _Add PostgreSQL_. Railway otomatis membuat variabel
-   `DATABASE_URL` dan menyambungkannya ke service Rails kamu - tidak perlu
-   diisi manual.
+   | Variable | Value |
+   | --- | --- |
+   | `RAILS_ENV` | `production` |
+   | `RAILS_MASTER_KEY` or `SECRET_KEY_BASE` | Rails secret or a generated secret, as required by the app configuration |
+   | `JWT_SECRET` | A separate, randomly generated secret |
+   | `CORS_ALLOWED_ORIGINS` | Allowed browser origins |
+   | `RAILS_LOG_LEVEL` | `info` |
+   | `WEB_CONCURRENCY` | `1` initially |
 
-3. **Set environment variables** pada service Rails (tab _Variables_):
-
-   | Key                                       | Value                                                           |
-   | ----------------------------------------- | --------------------------------------------------------------- |
-   | `RAILS_ENV`                               | `production`                                                    |
-   | `RAILS_MASTER_KEY` atau `SECRET_KEY_BASE` | hasil dari `ruby -rsecurerandom -e "puts SecureRandom.hex(64)"` |
-   | `JWT_SECRET`                              | hasil dari perintah yang sama (pakai nilai berbeda)             |
-   | `CORS_ALLOWED_ORIGINS`                    | domain yang boleh akses, atau `*` untuk mobile app              |
-   | `RAILS_LOG_LEVEL`                         | `info`                                                          |
-   | `WEB_CONCURRENCY`                         | `1` (naikkan kalau butuh lebih banyak worker)                   |
-
-4. **Railway otomatis mendeteksi Rails** lewat Nixpacks berkat `Gemfile`,
-   `Procfile`, dan `railway.toml` yang sudah disertakan. Build & deploy
-   akan otomatis jalan setiap push ke branch yang di-deploy.
-
-5. **Migrasi database berjalan otomatis** lewat baris `release:` di
-   `Procfile` (`bundle exec rails db:migrate`) setiap kali deploy sukses.
-   Untuk migrasi manual (mis. deploy pertama kali), buka tab _Shell_ di
-   Railway lalu jalankan:
+4. Deploy using the included `Gemfile`, `Procfile`, and `railway.toml` configuration.
+5. Run migrations if they are not executed by the release command:
 
    ```bash
    bundle exec rails db:migrate
-   bundle exec rails db:seed   # opsional, isi akun demo
+   bundle exec rails db:seed # Optional demo data
    ```
 
-6. **Cek health check**: Railway akan memantau `GET /up` (dikonfigurasi di
-   `railway.toml`). Kalau endpoint ini merespons 200, deploy dianggap
-   berhasil.
-
-7. **Catat domain publik**-nya (mis. `https://kurva-api-production.up.railway.app`)
-   dan masukkan ke `lib/services/api_config.dart` di app Flutter:
+6. Check `GET /up` to verify the deployment.
+7. Configure the API URL in the Flutter app:
 
    ```dart
    static const String baseUrl = String.fromEnvironment(
@@ -198,41 +181,36 @@ curl "http://localhost:3000/api/v1/reports/summary?from=2026-07-01&to=2026-07-31
    );
    ```
 
-   atau jalankan build Flutter dengan:
+   Or provide it at build time:
 
    ```bash
    flutter build apk --dart-define=API_BASE_URL=https://kurva-api-production.up.railway.app
    ```
 
-8. **(Opsional) Custom domain**: tab _Settings_ → _Networking_ → _Custom
-   Domain_ di service Rails, lalu tambahkan CNAME sesuai instruksi Railway.
+8. Optionally configure a custom domain in Railway networking settings.
 
-### Redeploy setelah ubah kode
+Railway redeploys when changes are pushed to the connected branch. Database migrations depend on the configured release command.
 
-Railway otomatis redeploy tiap kali kamu push ke branch yang terhubung.
-Tidak perlu langkah manual tambahan - migrasi baru akan otomatis jalan
-lewat `release:` command di atas.
-
-## Menjalankan test (opsional, RSpec sudah disiapkan di Gemfile)
+## Tests
 
 ```bash
 bin/rails db:test:prepare
 bundle exec rspec
 ```
 
-## Struktur folder singkat
+## Project Structure
 
-```
+```text
 app/
-  controllers/api/v1/   # semua endpoint /api/v1/*
-  models/                # User, Product, Customer, Transaction,
-                          # TransactionItem, CashSession, FinancialRecord
+  controllers/api/v1/  # API endpoints
+  models/              # Domain models
 config/
-  initializers/cors.rb           # CORS
-  initializers/rack_attack.rb    # rate limiting
-  initializers/security_headers.rb
-  environments/production.rb     # force_ssl, logging ke stdout, dll
-db/migrate/               # migrasi database
-lib/json_web_token.rb     # encode/decode token JWT
-railway.toml, Procfile    # konfigurasi deploy Railway
+  initializers/        # CORS, rate limits, and security headers
+  environments/        # Environment configuration
+db/migrate/             # Database migrations
+lib/json_web_token.rb  # JWT utilities
+railway.toml           # Railway deployment settings
+Procfile               # Process commands
 ```
+
+> This README documents the Ruby on Rails version of Kurva API. The PHP/MySQL Hostinger deployment has different setup requirements.
