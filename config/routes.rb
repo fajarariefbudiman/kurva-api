@@ -1,5 +1,5 @@
 Rails.application.routes.draw do
-  # Health check — dipakai Railway untuk cek apakah container sudah siap.
+  # Health check for Railway readiness probes.
   get "/up", to: proc { [200, {}, ["OK"]] }
 
   namespace :api do

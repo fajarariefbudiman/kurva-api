@@ -1,6 +1,5 @@
 class ApplicationController < ActionController::API
-  # Menangkap error umum supaya API selalu balas JSON yang rapi,
-  # bukan menampilkan stack trace atau HTML error page ke client.
+  # Return consistent JSON errors without exposing stack traces or HTML error pages.
   rescue_from ActiveRecord::RecordNotFound, with: :render_not_found
   rescue_from ActiveRecord::RecordInvalid, with: :render_unprocessable
   rescue_from ActionController::ParameterMissing, with: :render_bad_request
@@ -11,7 +10,7 @@ class ApplicationController < ActionController::API
 
   private
 
-  # Dipanggil di controller mana pun yang butuh login (`before_action :authenticate_user!`).
+  # Authenticate requests in controllers that require a signed-in user.
   def authenticate_user!
     token = bearer_token
     payload = token && JsonWebToken.decode(token)

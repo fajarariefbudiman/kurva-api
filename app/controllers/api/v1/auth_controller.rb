@@ -1,7 +1,6 @@
 module Api
   module V1
-    # Registrasi & login. Sengaja dipisah dari ApplicationController#authenticate_user!
-    # karena dua aksi ini justru harus BOLEH diakses tanpa token.
+    # Registration and login are public actions that do not require a JWT.
     class AuthController < ApplicationController
       def register
         user = User.new(user_params)
@@ -28,7 +27,7 @@ module Api
         render json: { user: user_json(current_user) }
       end
 
-      # PATCH /api/v1/auth/me — update profil toko (nama_toko, hp_toko, alamat).
+      # PATCH /api/v1/auth/me updates the store profile.
       def update_me
         authenticate_user!
         return if performed?
@@ -37,7 +36,7 @@ module Api
         render json: { user: user_json(current_user) }
       end
 
-      # PATCH /api/v1/auth/password — ganti kata sandi. Wajib sertakan kata sandi lama.
+      # PATCH /api/v1/auth/password requires the current password.
       def change_password
         authenticate_user!
         return if performed?

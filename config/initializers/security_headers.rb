@@ -1,5 +1,4 @@
-# Header keamanan standar untuk setiap response. Ditulis manual (tanpa gem
-# tambahan) supaya gampang diaudit dan tidak menambah dependency berat.
+# Apply auditable security headers without additional dependencies.
 class SecurityHeaders
   def initialize(app)
     @app = app
@@ -13,7 +12,7 @@ class SecurityHeaders
     headers["X-XSS-Protection"] ||= "1; mode=block"
     headers["Referrer-Policy"] ||= "strict-origin-when-cross-origin"
     headers["Permissions-Policy"] ||= "geolocation=(), camera=(), microphone=()"
-    # API murni JSON — tidak pernah menyajikan HTML/JS, jadi CSP boleh ketat.
+    # Use a restrictive CSP because this API only serves JSON.
     headers["Content-Security-Policy"] ||= "default-src 'none'"
 
     [status, headers, body]

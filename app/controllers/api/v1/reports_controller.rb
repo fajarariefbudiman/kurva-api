@@ -2,10 +2,7 @@ module Api
   module V1
     class ReportsController < BaseController
       # GET /api/v1/reports/summary?from=2026-07-01&to=2026-07-31
-      #
-      # Mengembalikan ringkasan lengkap: Modal, Capex, Opex, COGS, Expense,
-      # total penjualan & laba kotor untuk rentang tanggal yang diminta.
-      # Kalau from/to kosong, default-nya 30 hari terakhir.
+      # Return capital, expenses, sales, COGS, and gross profit; default to the last 30 days.
       def summary
         from = (params[:from].presence && Date.parse(params[:from])) || 30.days.ago.to_date
         to = (params[:to].presence && Date.parse(params[:to])) || Date.current
@@ -21,11 +18,7 @@ module Api
         total_opex = records.of_kind("opex").sum(:jumlah)
         total_expense = records.of_kind(%w[expense kas_keluar]).sum(:jumlah)
 
-        # `pembelian_stok` & `bayar_hutang_supplier` SENGAJA tidak ikut
-        # `total_expense` di atas -- itu perpindahan Kas ke Persediaan
-        # (atau pelunasan Hutang), bukan beban. Bebannya sudah terwakili
-        # lewat `total_cogs` di atas, yang diakui saat barang laku, bukan
-        # saat dibeli. Di sini cuma ditampilkan sebagai info arus kas.
+        # Stock purchases and debt payments are cash movements, not expenses; COGS is recognized on sale.
         total_pembelian_stok = records.of_kind(%w[pembelian_stok bayar_hutang_supplier]).sum(:jumlah)
         total_hutang_supplier = current_user.suppliers.sum(:total_hutang)
 

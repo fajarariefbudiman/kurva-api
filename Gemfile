@@ -2,30 +2,30 @@ source "https://rubygems.org"
 
 ruby "4.0.6"
 
-# Rails inti, mode API-only (tanpa view/asset pipeline)
+# Rails API-only framework.
 gem "rails", "~> 7.1.3"
 
-# Database — Postgres (dipakai juga oleh Railway)
+# PostgreSQL database for Railway.
 gem "pg", "~> 1.5"
 
-# App server
+# Application server.
 gem "puma", "~> 6.4"
 
-# Autentikasi
-gem "bcrypt", "~> 3.1"          # hash password (has_secure_password)
-gem "jwt", "~> 2.8"             # token JWT untuk sesi login
+# Authentication.
+gem "bcrypt", "~> 3.1"          # Password hashing (has_secure_password)
+gem "jwt", "~> 2.8"             # JWT authentication tokens
 
-# Middleware keamanan
-gem "rack-cors", "~> 2.0"       # CORS, supaya app Flutter boleh akses API
-gem "rack-attack", "~> 6.7"     # rate limiting & proteksi brute-force
+# Security middleware.
+gem "rack-cors", "~> 2.0"       # CORS for Flutter Web clients
+gem "rack-attack", "~> 6.7"     # Rate limiting and brute-force protection
 
-# Serialisasi JSON response yang rapi & konsisten
+# Consistent JSON serialization.
 gem "blueprinter", "~> 1.0"
 
-# Environment variables dari file .env saat development
+# Load local environment variables.
 gem "dotenv-rails", "~> 3.1", groups: [:development, :test]
 
-# Booting lebih cepat
+# Improve boot performance.
 gem "bootsnap", "~> 1.18", require: false
 
 # Reduces boot times through caching; required in config/boot.rb
@@ -44,5 +44,5 @@ group :test do
   gem "database_cleaner-active_record", "~> 2.2"
 end
 
-# Time zone data untuk Windows/JRuby (aman ditinggal di semua platform)
+# Time zone support for Windows and JRuby.
 gem "tzinfo-data", platforms: %i[windows jruby]

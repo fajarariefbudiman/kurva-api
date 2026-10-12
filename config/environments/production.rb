@@ -5,12 +5,11 @@ Rails.application.configure do
   config.eager_load = true
   config.consider_all_requests_local = false
 
-  # Paksa semua trafik lewat HTTPS — penting karena Railway ada di belakang
-  # proxy TLS, dan kita tidak mau token JWT pernah lewat koneksi plain HTTP.
+  # Enforce HTTPS to protect JWTs when running behind the Railway TLS proxy.
   config.force_ssl = true
   config.assume_ssl = true
 
-  # Railway menangkap log lewat stdout, bukan file.
+  # Send logs to stdout for Railway.
   config.logger = ActiveSupport::Logger.new($stdout)
     .tap { |logger| logger.formatter = ::Logger::Formatter.new }
     .then { |logger| ActiveSupport::TaggedLogging.new(logger) }
@@ -19,9 +18,7 @@ Rails.application.configure do
 
   config.active_support.report_deprecations = false
 
-  # Host yang diizinkan mengakses aplikasi ini secara langsung.
-  # Railway memberi domain acak *.up.railway.app; tambahkan custom domain
-  # di sini kalau kamu pakai domain sendiri nantinya.
+  # Allow Railway hostnames and any explicitly configured custom domains.
   config.hosts << ENV["RAILWAY_PUBLIC_DOMAIN"] if ENV["RAILWAY_PUBLIC_DOMAIN"]
   config.hosts << /.*\.up\.railway\.app\z/
   config.host_authorization = { exclude: ->(request) { request.path == "/up" } }

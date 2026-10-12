@@ -1,7 +1,4 @@
-# CORS — dibutuhkan supaya app Flutter (web) atau tools seperti Postman
-# dari domain/origin lain boleh memanggil API ini. Untuk Flutter mobile
-# (Android/iOS) sebenarnya CORS tidak berlaku (itu aturan browser), tapi
-# kita tetap aktifkan untuk mendukung Flutter Web & testing dari browser.
+# Enable browser CORS for Flutter Web; native Android and iOS clients do not require CORS.
 
 Rails.application.config.middleware.insert_before 0, Rack::Cors do
   allow do

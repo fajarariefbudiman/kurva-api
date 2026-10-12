@@ -1,4 +1,4 @@
-# Jangan pernah catat password/token di log server.
+# Never log passwords or authentication tokens.
 Rails.application.config.filter_parameters += [
   :password, :password_confirmation, :token, :authorization
 ]

@@ -1,5 +1,4 @@
-# NB: nama kelas `Transaction` sengaja dipakai (transaksi PENJUALAN),
-# bukan `ActiveRecord`-internal `Transaction` (namespace berbeda, tidak bentrok).
+# Sales transaction model; separate from the ActiveRecord internal transaction class.
 class Transaction < ApplicationRecord
   METODE_PEMBAYARAN = %w[tunai transfer qris lainnya].freeze
 
@@ -23,9 +22,7 @@ class Transaction < ApplicationRecord
 
   private
 
-  # Efek samping yang wajib terjadi bersamaan dengan penjualan:
-  # kurangi stok produk & perbarui statistik pelanggan. Dibungkus satu
-  # transaction DB supaya konsisten (semua berhasil, atau semua batal).
+  # Atomically deduct inventory and update customer sales statistics.
   def apply_side_effects!
     ActiveRecord::Base.transaction do
       transaction_items.each do |item|

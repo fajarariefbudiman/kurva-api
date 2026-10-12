@@ -5,7 +5,7 @@ require "active_model/railtie"
 require "active_job/railtie"
 require "active_record/railtie"
 require "action_controller/railtie"
-# Tidak butuh ActionView / ActionMailer / ActiveStorage untuk API murni ini.
+# API-only application does not need view, mailer, or storage frameworks.
 
 Bundler.require(*Rails.groups)
 
@@ -14,18 +14,16 @@ module KurvaApi
     config.load_defaults 7.1
     config.autoload_lib(ignore: %w[tasks])
 
-    # Ini API-only backend — tidak ada view, session cookie, atau CSRF token.
+    # Use API-only mode without browser sessions or CSRF tokens.
     config.api_only = true
 
-    # Semua waktu disimpan & ditampilkan dalam WIB, cocok untuk UMKM Indonesia.
+    # Use Western Indonesian Time (WIB) for application timestamps.
     config.time_zone = "Asia/Jakarta"
     config.active_record.default_timezone = :utc
 
-    # Middleware keamanan & rate limiting — dimuat lebih awal supaya
-    # request yang mencurigakan diblokir sebelum masuk ke controller.
+    # Load security and rate-limiting middleware before request handling.
     config.middleware.use Rack::Attack
 
-    # Pastikan header keamanan standar selalu ada di setiap response
-    # (lihat app/controllers/application_controller.rb untuk detailnya).
+    # Apply standard security response headers.
   end
 end

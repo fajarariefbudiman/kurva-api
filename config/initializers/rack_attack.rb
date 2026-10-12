@@ -1,24 +1,18 @@
-# Rack::Attack — rate limiting & proteksi brute-force.
-#
-# Dengan ini:
-#  - Tiap IP dibatasi jumlah requestnya secara umum (anti-spam / anti-DoS)
-#  - Percobaan login & register dibatasi lebih ketat (anti brute-force
-#    password & anti pembuatan akun massal)
+# Rate-limit API requests and protect authentication endpoints against brute force.
+# Apply per-IP request limits and stricter registration and login throttles.
 class Rack::Attack
-  # Cache throttle disimpan di memory Rails secara default. Untuk deployment
-  # dengan banyak instance/dyno, arahkan ke Redis lewat REDIS_URL supaya
-  # limit-nya konsisten di semua instance.
+  # Use Redis for consistent throttling across multiple application instances.
   if ENV["REDIS_URL"].present?
     require "redis"
     Rack::Attack.cache.store = ActiveSupport::Cache::RedisCacheStore.new(url: ENV["REDIS_URL"])
   end
 
-  # ── Batas umum: maksimal 300 request / 5 menit per IP ──────────────────
+  # Limit each IP to 300 requests per 5 minutes.
   throttle("requests by ip", limit: 300, period: 5.minutes) do |req|
     req.ip
   end
 
-  # ── Login: maksimal 5 percobaan / menit per kombinasi IP + email ───────
+  # Limit login to 5 attempts per minute per IP and email.
   throttle("logins by ip and email", limit: 5, period: 60.seconds) do |req|
     if req.path == "/api/v1/auth/login" && req.post?
       email = begin
@@ -32,12 +26,12 @@ class Rack::Attack
     end
   end
 
-  # ── Register: maksimal 10 akun baru / jam per IP ────────────────────────
+  # Limit registration to 10 accounts per hour per IP.
   throttle("registrations by ip", limit: 10, period: 1.hour) do |req|
     req.ip if req.path == "/api/v1/auth/register" && req.post?
   end
 
-  # Response standar saat kena limit — JSON, bukan HTML, karena ini API.
+  # Return JSON responses for throttled requests.
   self.throttled_responder = lambda do |request|
     retry_after = (request.env["rack.attack.match_data"] || {})[:period]
     headers = { "Content-Type" => "application/json" }

@@ -1,6 +1,6 @@
 module Api
   module V1
-    # Semua resource di bawah /api/v1 (kecuali auth) wajib login.
+    # Require authentication for all protected API resources.
     class BaseController < ApplicationController
       before_action :authenticate_user!
     end

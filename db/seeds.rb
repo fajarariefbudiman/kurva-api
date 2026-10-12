@@ -1,4 +1,4 @@
-# Data contoh untuk development. Jalankan dengan: bin/rails db:seed
+# Sample development data; run with bin/rails db:seed.
 user = User.find_or_create_by!(email: "demo@kurva.app") do |u|
   u.nama_toko = "Warung Demo"
   u.password = "password123"

@@ -1,28 +1,10 @@
-# Pembelian/restock barang dari supplier. Kebalikan dari `Transaction`
-# (penjualan), tapi efeknya BUKAN kebalikan dari sisi akuntansi:
-#
-#   - Penjualan: stok TURUN, dan porsi modalnya diakui sebagai COGS
-#     saat itu juga (lihat Transaction#apply_side_effects!).
-#   - Pembelian: stok NAIK, tapi TIDAK ada beban/expense yang diakui
-#     sekarang. Uang yang keluar cuma pindah dari Kas -> Persediaan
-#     (aset ke aset), bukan Kas -> Beban. Beban (COGS) baru muncul
-#     nanti, sedikit demi sedikit, waktu barang ini terjual — via
-#     snapshot `harga_modal` yang di-update di sini pakai weighted
-#     average cost, lalu dipakai ulang oleh TransactionItem saat laku.
-#
-# Kalau status_pembayaran == "hutang", belum ada kas yang keluar sama
-# sekali (nambah hutang usaha ke supplier), jadi juga belum boleh
-# tercatat sebagai arus kas. Baru saat `lunasi_hutang!` dipanggil, kas
-# keluar dicatat dan hutang berkurang.
+# Purchases increase stock and inventory value; COGS is recognized only when items are sold.
+# Credit purchases incur supplier debt; cash outflow is recorded upon settlement.
 class Purchase < ApplicationRecord
   STATUS_PEMBAYARAN = %w[lunas hutang].freeze
   METODE_PEMBAYARAN = %w[tunai transfer qris lainnya].freeze
 
-  # PENTING: didaftarkan SEBELUM asosiasi `dependent: :destroy` di bawah.
-  # Di Rails, urutan eksekusi callback `before_*` mengikuti urutan
-  # PENDAFTARAN (top-to-bottom di file ini) — jadi callback ini WAJIB
-  # duluan supaya reverse_side_effects! masih sempat baca purchase_items
-  # yang lama sebelum keburu ikut terhapus oleh `dependent: :destroy`.
+  # Register this callback before dependent item deletion so original items remain available.
   before_destroy :reverse_side_effects!
 
   belongs_to :user
@@ -40,14 +22,12 @@ class Purchase < ApplicationRecord
 
   after_create :apply_side_effects!
 
-  # Total nilai barang yang dibeli (buat ditampilkan di UI/laporan
-  # pembelian; TIDAK dipakai sebagai expense di Laba Rugi).
+  # Inventory purchase value is not a profit-and-loss expense.
   def total_pembelian
     purchase_items.sum { |i| i.harga_beli * i.qty }
   end
 
-  # Dipanggil dari controller ketika hutang ke supplier dilunasi.
-  # Baru DI SINI kas keluar benar-benar dicatat.
+  # Record cash outflow only when supplier debt is settled.
   def lunasi_hutang!
     return false unless status_pembayaran == "hutang"
 
@@ -60,14 +40,8 @@ class Purchase < ApplicationRecord
     true
   end
 
-  # Efek samping wajib saat pembelian dibuat: naikkan stok & perbarui
-  # harga modal (weighted average cost) tiap produk, lalu catat efek
-  # kas/hutang sesuai status_pembayaran. Dibungkus satu transaction DB
-  # supaya konsisten (semua berhasil, atau semua batal).
-  #
-  # Dipanggil otomatis via after_create, DAN dipanggil manual oleh
-  # PurchasesController#update setelah data pembelian selesai diperbarui
-  # (lihat reverse_side_effects! di bawah untuk arah sebaliknya).
+  # Atomically update stock, weighted-average unit cost, and cash or supplier debt on purchase creation.
+  # Also apply these effects after updates once prior effects have been reversed.
   def apply_side_effects!
     ActiveRecord::Base.transaction do
       purchase_items.each { |item| update_stock_and_cost!(item) }
@@ -75,18 +49,8 @@ class Purchase < ApplicationRecord
     end
   end
 
-  # Kebalikan dari apply_side_effects! — meng-"undo" efek stok/harga
-  # modal produk serta kas/hutang, memakai data purchase_items & status
-  # pembayaran yang MASIH LAMA (belum diubah). Dipanggil sebelum sebuah
-  # pembelian diedit (lihat PurchasesController#update) atau dihapus
-  # (before_destroy di atas).
-  #
-  # CATATAN keterbatasan: kalau stok produk sudah berkurang lagi setelah
-  # pembelian ini (mis. karena sudah kejual), reversal harga modal tidak
-  # bisa 100% presisi secara matematis (weighted average cost bukan
-  # operasi yang bisa dibalik sempurna kalau ada pergerakan stok lain di
-  # antaranya). Untuk kasus itu, stok diamankan supaya tidak sampai
-  # minus, dan harga modal dibiarkan seperti sebelum reversal.
+  # Reverse original purchase side effects before editing or deleting a purchase.
+  # Weighted-average cost cannot always be reversed exactly after later stock movements; prevent negative stock.
   def reverse_side_effects!
     ActiveRecord::Base.transaction do
       purchase_items.each { |item| reverse_stock_and_cost!(item) }
@@ -113,7 +77,7 @@ class Purchase < ApplicationRecord
     product.update!(stok: stok_baru, harga_modal: modal_baru.round(2))
   end
 
-  # Kebalikan matematis dari update_stock_and_cost! di atas.
+  # Reverse the stock and cost update where mathematically possible.
   def reverse_stock_and_cost!(item)
     product = item.product
     return unless product
@@ -123,8 +87,7 @@ class Purchase < ApplicationRecord
     stok_baru = stok_lama - item.qty
 
     if stok_baru <= 0
-      # Tidak bisa dihitung mundur secara akurat (lihat catatan di
-      # reverse_side_effects!) — amankan saja supaya stok tidak minus.
+      # Prevent negative stock when exact cost reversal is impossible.
       product.update!(stok: 0)
     else
       total_modal_lama = stok_lama * modal_lama
@@ -144,21 +107,13 @@ class Purchase < ApplicationRecord
     end
   end
 
-  # Kebalikan dari handle_payment_and_debt! — hapus catatan kas keluar
-  # yang terkait pembelian ini (baik yang dari pembelian lunas maupun
-  # dari pelunasan hutang belakangan, lihat lunasi_hutang!), dan
-  # kembalikan hutang supplier kalau pembelian ini masih berstatus
-  # "hutang" (artinya belum pernah dilunasi, jadi hutangnya masih perlu
-  # dibatalkan).
+  # Reverse purchase cash entries and any outstanding supplier debt.
   def reverse_payment_and_debt!
     financial_records.destroy_all
     supplier&.decrement!(:total_hutang, total) if status_pembayaran == "hutang"
   end
 
-  # Catatan kas TIDAK pernah dianggap sebagai expense/opex di Laba
-  # Rugi (lihat ReportsController) — cuma dipakai buat laporan Arus
-  # Kas, supaya tidak dobel-hitung dengan COGS yang muncul belakangan
-  # saat barang laku.
+  # Treat inventory cash movements as cash flow, not profit-and-loss expense, to avoid duplicate COGS.
   def catat_kas_keluar!(kind:, nama:)
     FinancialRecord.create!(
       user: user,

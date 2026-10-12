@@ -1,7 +1,6 @@
 module Api
   module V1
-    # Menangani Modal, Capex, Opex, Expense, dan Kas Masuk/Keluar —
-    # semuanya lewat satu endpoint, dibedakan lewat query/body param `kind`.
+    # Handle financial records by their `kind` parameter.
     class FinancialRecordsController < BaseController
       VALID_KINDS = FinancialRecord::KINDS
 

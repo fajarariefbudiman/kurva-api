@@ -1,14 +1,7 @@
 class CreateFinancialRecords < ActiveRecord::Migration[7.1]
   def change
-    # Satu tabel untuk 6 jenis catatan keuangan (dibedakan lewat `kind`):
-    #   modal      → setoran pemilik untuk mendanai usaha
-    #   capex      → belanja aset (belum termasuk penyusutan)
-    #   opex       → biaya rutin bulanan
-    #   expense    → pengeluaran lain di luar rutin & aset
-    #   kas_masuk  → kas masuk dicatat dari halaman Kasir
-    #   kas_keluar → kas keluar dicatat dari halaman Kasir
-    # COGS/HPP sengaja TIDAK disimpan di sini karena dihitung otomatis
-    # dari transaction_items (harga_modal x qty) — lihat ReportsController.
+    # Store owner capital, capex, opex, expenses, and cash movements by `kind`.
+    # Calculate COGS from transaction item quantities and unit costs.
     create_table :financial_records do |t|
       t.references :user, null: false, foreign_key: true
       t.references :cash_session, foreign_key: true

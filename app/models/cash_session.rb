@@ -12,7 +12,7 @@ class CashSession < ApplicationRecord
     ditutup_pada.nil?
   end
 
-  # Laba kotor = total penjualan - total HPP, dihitung saat kas ditutup.
+  # Gross profit equals total sales minus COGS at session close.
   def laba_kotor
     (total_penjualan || 0) - (total_hpp || 0)
   end

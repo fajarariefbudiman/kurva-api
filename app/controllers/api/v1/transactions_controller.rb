@@ -16,12 +16,8 @@ module Api
       end
 
       # POST /api/v1/transactions
-      # Body: { transaction: { kasir, subtotal, diskon, total, payment_method_id,
-      #                          uang_diterima, kembalian, customer_id, cash_session_id,
-      #                          items: [{ product_id, nama, harga, harga_modal, qty }] } }
-      #
-      # `payment_method_id` opsional. Kalau toko belum setup metode pembayaran
-      # apa pun lewat CRUD (Pengaturan), transaksi otomatis dianggap Tunai.
+      # Body: { transaction: { kasir, subtotal, diskon, total, payment_method_id, uang_diterima, kembalian, customer_id, cash_session_id, items: [{ product_id, nama, harga, harga_modal, qty }] } }
+      # Default to cash when no payment method is configured.
       def create
         tx = current_user.transactions.new(transaction_params)
         tx.terjadi_pada ||= Time.current
@@ -32,9 +28,7 @@ module Api
 
       private
 
-      # Isi metode_pembayaran (kategori: tunai/transfer/qris/lainnya) dan
-      # payment_method_label (snapshot nama lengkap) berdasarkan
-      # payment_method_id yang dikirim. Kalau kosong/tidak ditemukan → Tunai.
+      # Resolve the payment category and receipt label from `payment_method_id`, defaulting to cash.
       def assign_payment_method!(tx)
         pm_id = params.dig(:transaction, :payment_method_id)
         pm = pm_id.present? ? current_user.payment_methods.find_by(id: pm_id) : nil
@@ -55,7 +49,7 @@ module Api
           :uang_diterima, :kembalian, :customer_id, :cash_session_id, :terjadi_pada,
           transaction_items_attributes: [:product_id, :nama, :harga, :harga_modal, :qty]
         ).tap do |p|
-          # terima juga key `items` (lebih pendek) sebagai alias
+          # Accept the shorter `items` key as an alias.
           if params[:transaction][:items].present? && p[:transaction_items_attributes].blank?
             p[:transaction_items_attributes] = params[:transaction][:items]
                                                   .map { |i| i.permit(:product_id, :nama, :harga, :harga_modal, :qty) }

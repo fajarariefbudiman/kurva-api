@@ -16,14 +16,8 @@ module Api
       end
 
       # POST /api/v1/purchases
-      # Body: { purchase: { penerima, supplier_id, no_faktur, subtotal, diskon, total,
-      #                       status_pembayaran, metode_pembayaran, terjadi_pada,
-      #                       items: [{ product_id, nama, harga_beli, qty }] } }
-      #
-      # status_pembayaran: "lunas" (default, dibayar sekarang) atau "hutang"
-      # (belum dibayar, nambah hutang ke supplier). Stok & harga_modal produk
-      # selalu diperbarui saat ini juga, terlepas dari status pembayaran —
-      # karena barangnya memang sudah diterima secara fisik.
+      # Body: { purchase: { penerima, supplier_id, no_faktur, subtotal, diskon, total, status_pembayaran, metode_pembayaran, terjadi_pada, items: [{ product_id, nama, harga_beli, qty }] } }
+      # Paid purchases reduce cash; credit purchases increase supplier debt; both update stock and unit cost.
       def create
         purchase = current_user.purchases.new(purchase_params)
         purchase.terjadi_pada ||= Time.current
@@ -32,15 +26,8 @@ module Api
       end
 
       # PATCH/PUT /api/v1/purchases/:id
-      # Body sama seperti create. Kirim ulang SELURUH daftar `items` (bukan
-      # cuma yang berubah) — daftar barang lama akan diganti total dengan
-      # yang baru.
-      #
-      # Efek lama (stok & harga modal produk, kas keluar/hutang supplier)
-      # di-"undo" dulu memakai data yang MASIH LAMA, baru efek baru
-      # diterapkan memakai data yang sudah diperbarui — supaya tidak
-      # dobel maupun tercecer. Lihat Purchase#reverse_side_effects! &
-      # #apply_side_effects!.
+      # Send the full `items` list when updating a purchase.
+      # Reverse previous stock, cost, and payment effects before applying updated values.
       def update
         items_replaced = params[:purchase].present? &&
                           (params[:purchase][:purchase_items_attributes].present? ||
@@ -48,10 +35,7 @@ module Api
 
         ActiveRecord::Base.transaction do
           @purchase.reverse_side_effects!
-          # Item lama dihapus dulu (bukan di-update satu-satu) karena
-          # payload dari client tidak menyertakan `id` tiap item — jadi
-          # kalau tidak dihapus dulu, nested attributes akan menambah
-          # item BARU di atas yang lama alih-alih menggantinya.
+          # Replace existing purchase items because client payloads do not include item IDs.
           @purchase.purchase_items.destroy_all if items_replaced
           @purchase.update!(purchase_params)
           @purchase.reload
@@ -62,18 +46,14 @@ module Api
       end
 
       # DELETE /api/v1/purchases/:id
-      # Menghapus pembelian sekaligus membatalkan efeknya: stok & harga
-      # modal produk dikembalikan, kas/hutang terkait juga di-"undo" —
-      # berjalan otomatis lewat `before_destroy :reverse_side_effects!`
-      # di model Purchase.
+      # Deleting a purchase reverses its stock, cost, cash, and debt effects.
       def destroy
         @purchase.destroy!
         head :no_content
       end
 
       # PATCH /api/v1/purchases/:id/lunasi
-      # Melunasi pembelian yang tadinya berstatus "hutang": mencatat kas
-      # keluar & mengurangi total_hutang supplier.
+      # Settling a credit purchase records cash outflow and reduces supplier debt.
       def lunasi
         if @purchase.lunasi_hutang!
           render json: @purchase.as_json(include: :purchase_items)
@@ -94,7 +74,7 @@ module Api
           :status_pembayaran, :metode_pembayaran, :terjadi_pada, :catatan,
           purchase_items_attributes: [:product_id, :nama, :harga_beli, :qty]
         ).tap do |p|
-          # terima juga key `items` (lebih pendek) sebagai alias
+          # Accept the shorter `items` key as an alias.
           if params[:purchase][:items].present? && p[:purchase_items_attributes].blank?
             p[:purchase_items_attributes] = params[:purchase][:items]
                                                .map { |i| i.permit(:product_id, :nama, :harga_beli, :qty) }

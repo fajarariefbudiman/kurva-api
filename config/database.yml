@@ -1,11 +1,6 @@
-# Konfigurasi database Postgres.
-#
-# Di Railway, variabel `DATABASE_URL` otomatis disediakan begitu kamu
-# menambahkan plugin Postgres ke project — jadi biasanya kamu tidak perlu
-# mengubah file ini sama sekali.
-#
-# Untuk development lokal, isi `.env` (contoh di `.env.example`) dengan
-# DATABASE_URL="postgres://user:password@localhost:5432/kurva_api_development"
+# PostgreSQL database configuration.
+# Railway provides DATABASE_URL when PostgreSQL is attached.
+# Set DATABASE_URL in the local .env file for development.
 
 default: &default
   adapter: postgresql

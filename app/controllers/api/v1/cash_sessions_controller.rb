@@ -6,13 +6,13 @@ module Api
         render json: current_user.cash_sessions.order(dibuka_pada: :desc)
       end
 
-      # GET /api/v1/cash_sessions/active — sesi kas yang sedang buka (kalau ada)
+      # GET /api/v1/cash_sessions/active returns the open cash session.
       def active
         session = current_user.cash_sessions.open_session.first
         render json: session
       end
 
-      # POST /api/v1/cash_sessions — buka kas baru
+      # POST /api/v1/cash_sessions opens a cash session.
       def create
         if current_user.cash_sessions.open_session.exists?
           render json: { error: "Masih ada sesi kas yang belum ditutup" }, status: :unprocessable_entity
@@ -28,7 +28,7 @@ module Api
         render json: session, status: :created
       end
 
-      # PATCH /api/v1/cash_sessions/:id/close — tutup kas & hitung ringkasan
+      # PATCH /api/v1/cash_sessions/:id/close closes a session and calculates totals.
       def close
         session = current_user.cash_sessions.open_session.find(params[:id])
         txs = session.transactions

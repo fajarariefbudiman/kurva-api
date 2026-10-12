@@ -7,7 +7,7 @@ class PaymentMethod < ApplicationRecord
   validates :nama, presence: true
   validates :jenis, inclusion: { in: JENIS }
 
-  # Label lengkap buat ditampilkan/disnapshot ke struk transaksi.
+  # Full label stored on transaction receipts.
   def label
     if jenis == "transfer" && bank.present?
       parts = ["Transfer #{bank}"]
