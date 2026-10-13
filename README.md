@@ -212,5 +212,3 @@ lib/json_web_token.rb  # JWT utilities
 railway.toml           # Railway deployment settings
 Procfile               # Process commands
 ```
-
-> This README documents the Ruby on Rails version of Kurva API. The PHP/MySQL Hostinger deployment has different setup requirements.
